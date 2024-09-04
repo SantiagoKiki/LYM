@@ -9,14 +9,14 @@ class RobotParser:
         self.macros = {}
         self.commands = {
             "turnToMy", "turnToThe", "walk", "jump", "drop", "pick", 
-            "grab", "letGo", "pop", "moves", "nop", "safeExe", "if", "else", "fi", "then"
+            "grab", "letgo", "pop", "moves", "nop", "safeExe", "if", "else", "fi", "then","foo", "move","goend","repeat","times","while","not","roomForChips"    
         }
         self.constants = {
             "size", "myX", "myY", "myChips", "myBalloons", 
-            "balloonsHere", "chipsHere", "roomForChips"
+            "balloonsHere", "chipsHere", "roomForChips",
         }
         self.conditions = {
-            "isBlocked?", "isFacing?", "zero?", "not"
+            "isBlocked?", "isFacing?", "zero?", "not?"
         }
         self.directions = {"left", "right", "back", "forward"}
         self.orientations = {"north", "south", "east", "west"}
@@ -25,7 +25,7 @@ class RobotParser:
     def tokenize(self, program):
         token_specification = [
             ("NUMBER", r"\d+"),
-            ("ID", r"[A-Za-z_]\w*"),
+            ("ID", r"[A-Za-z_]\w*\??"),  # Incluir ? como parte de ID en condiciones
             ("ASSIGN", r"="),
             ("OP", r"[\+\-\*/]"),
             ("SEMICOLON", r";"),
@@ -36,7 +36,6 @@ class RobotParser:
             ("COMMA", r","),
             ("NEWLINE", r"\n"),
             ("SKIP", r"[ \t]+"),  # Ignorar espacios y tabuladores
-            ("QUESTIONMARK", r"\?"),
             ("MISMATCH", r"."),  # Cualquier otro carácter no reconocido
         ]
         token_regex = "|".join(f"(?P<{pair[0]}>{pair[1]})" for pair in token_specification)
@@ -72,7 +71,7 @@ class RobotParser:
     def parse_instruction(self):
         token = self.tokens[self.current_token_index]
         print(f"Procesando token: {token}")
-
+    
         if token[0] == "ID" and token[1] == "NEW":
             print("Encontrado NEW")
             self.current_token_index += 1  # Saltar "NEW"
@@ -157,24 +156,18 @@ class RobotParser:
             self.current_token_index += 1  # Saltar ")"
             print(f"Parámetros: {parameters}")
 
-            if self.tokens[self.current_token_index][0] == "LBRACE":
-                self.block_balance += 1  # Incrementar el balance por el bloque abierto
-                self.current_token_index += 1  # Saltar "{"
-                macro_body = []
-                print("Procesando cuerpo del macro")
-                while self.tokens[self.current_token_index][0] != "RBRACE":
-                    if self.current_token_index >= len(self.tokens):
-                        raise RuntimeError('Se esperaba "}" para cerrar el bloque del macro')
-                    macro_body.append(self.tokens[self.current_token_index][1])
-                    self.current_token_index += 1
-                self.block_balance -= 1  # Decrementar el balance por el bloque cerrado
-                self.current_token_index += 1  # Saltar "}"
-                self.macros[macro_name] = (parameters, macro_body)
-                print(f"Macro declarada: {macro_name} con parámetros {parameters} y cuerpo {macro_body}")
-            else:
-                raise RuntimeError('Se esperaba "{" después de la definición de parámetros')
+        if self.tokens[self.current_token_index][0] == "LBRACE":
+            self.block_balance += 1  # Incrementar el balance por el bloque abierto
+            self.current_token_index += 1  # Saltar "{"
+            while self.tokens[self.current_token_index][0] != "RBRACE":
+                if self.current_token_index >= len(self.tokens):
+                    raise RuntimeError('Se esperaba "}" para cerrar el bloque del macro')
+                self.parse_instruction()  # Procesar el contenido del bloque de la macro
+            self.block_balance -= 1  # Decrementar el balance por el bloque cerrado
+            self.current_token_index += 1  # Saltar "}"
+            print(f"Bloque del macro cerrado, balance actual: {self.block_balance}")
         else:
-            raise RuntimeError('Se esperaba "(" después del nombre del macro')
+            raise RuntimeError('Se esperaba "{" después de los parámetros del macro')
 
     def parse_if(self):
         print("Procesando if")
@@ -185,11 +178,17 @@ class RobotParser:
         # Procesar el bloque if
         if self.tokens[self.current_token_index][0] == "LBRACE":
             self.parse_block()
+        if self.tokens[self.current_token_index][0] == "then":
+            self.current_token_index += 1  # Saltar "then"
+            if self.tokens[self.current_token_index][0] == "LBRACE":
+                self.block_balance += 1  # Incrementar el balance de bloques
+                self.parse_block()  # Procesar el bloque de código después de then
 
         # Procesar el else si existe
         if self.tokens[self.current_token_index][0] == "else":
             self.parse_else()
 
+            # Verificar y avanzar el "fi"
             if self.tokens[self.current_token_index][0] == "fi":
                 print("Encontrado fi")
                 self.current_token_index += 1  # Saltar "fi"
@@ -209,7 +208,7 @@ class RobotParser:
         if self.tokens[self.current_token_index][0] == "LBRACE":
             self.block_balance += 1  # Incrementar el balance por el bloque abierto
             self.current_token_index += 1  # Saltar '{'
-            while self.tokens[self.current_token_index][0] != "RBRACE":
+            while self.tokens[self.current_token_index][0] != "RBRACE" or self.block_balance > 1:
                 if self.current_token_index >= len(self.tokens):
                     raise RuntimeError('Se esperaba "}" para cerrar el bloque')
                 self.parse_instruction()
@@ -222,14 +221,41 @@ class RobotParser:
     def parse_command(self):
         command = self.tokens[self.current_token_index][1]
         print(f"Procesando comando: {command}")
-        if command in self.commands:
+
+        if command in self.commands or command in self.macros:
             self.current_token_index += 1
 
             if self.current_token_index < len(self.tokens) and self.tokens[self.current_token_index][0] == "LPAREN":
                 self.parse_parentheses()  # Procesar paréntesis si existen
+
+            # Ejecutar un macro si existe
+            if command in self.macros:
+                print(f"Ejecutando macro: {command}")
+                self.execute_macro(command)
+
+        elif command in self.constants:
+            print(f"Constante encontrada: {command}")
+            self.current_token_index += 1
+
+        elif command in self.conditions:
+            print(f"Condición encontrada: {command}")
+            self.current_token_index += 1
+
+        elif command in self.directions:
+            print(f"Dirección encontrada: {command}")
+            self.current_token_index += 1
+
+        elif command in self.orientations:
+            print(f"Orientación encontrada: {command}")
+            self.current_token_index += 1
+
+        elif command in self.variables:
+            print(f"Variable usada: {command}")
+            self.current_token_index += 1
+
         else:
-            if command not in self.variables and command not in self.macros:
-                raise RuntimeError(f"Comando no reconocido: {command}")
+            raise RuntimeError(f"Comando o token no reconocido: {command}")
+
 
     def parse_expression(self):
         token = self.tokens[self.current_token_index]
@@ -239,17 +265,16 @@ class RobotParser:
             next_token_index = self.current_token_index + 1
             if next_token_index < len(self.tokens):
                 next_token = self.tokens[next_token_index]
-                if next_token[0] == "QUESTIONMARK":
-                    full_token = token[1] + next_token[1]
-                    self.current_token_index += 2
-                    return full_token
-                else:
-                    self.current_token_index += 1
-                    return token[1]
+                # Simplemente devuelve el token con la condición completa (ya contiene ? si aplica)
+                self.current_token_index += 1
+                return token[1]
             else:
-                raise RuntimeError(f"Expresión incompleta: {token}")
+                # Si no hay más tokens, solo devolvemos el token actual
+                self.current_token_index += 1
+                return token[1]
         else:
             raise RuntimeError(f"Expresión no reconocida: {token}")
+
 
     def parse_parentheses(self):
         print("Procesando paréntesis")
@@ -281,6 +306,23 @@ class RobotParser:
             print(f"Bloque EXEC cerrado, balance actual: {self.block_balance}")
         else:
             raise RuntimeError('Se esperaba "{" después de EXEC')
+
+    def execute_macro(self, macro_name):
+        parameters, macro_body = self.macros[macro_name]
+        print(f"Ejecutando macro: {macro_name} con cuerpo {macro_body}")
+        
+        if self.tokens[self.current_token_index][0] == "LBRACE":
+            self.block_balance += 1  # Incrementar el balance por el bloque abierto
+            self.current_token_index += 1
+            while self.tokens[self.current_token_index][0] != "RBRACE":
+                if self.current_token_index >= len(self.tokens):
+                    raise RuntimeError('Se esperaba "}" para cerrar el bloque del macro')
+                self.parse_instruction()  # Procesar el contenido del bloque de la macro
+            self.block_balance -= 1  # Decrementar el balance por el bloque cerrado
+            self.current_token_index += 1  # Saltar '}'
+            print(f"Bloque del macro cerrado, balance actual: {self.block_balance}")
+        else:
+            raise RuntimeError('Se esperaba "{" después de los parámetros del macro')
 
 # Leer el contenido del archivo
 with open("code-examples.txt", "r") as file:

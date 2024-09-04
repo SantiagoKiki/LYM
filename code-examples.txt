@@ -1,5 +1,5 @@
 EXEC  {	
-if not(blocked?(left)) then  { turnToMy(left); walk(1); }  {nop;}  fi
+if not(blocked?(left)) then  { turnToMy(left); walk(1); } else {nop;}  fi
 }
 
 EXEC {	
