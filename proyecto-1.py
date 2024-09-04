@@ -305,10 +305,8 @@ class RobotParser:
         for i in range (len(self.tokens)):
             self.tokens[i]
             fanterior = self.tokens[i-1] 
-            print("aaaaaaaaaaaaaaaaa ", fanterior)
-            print("aaaaaaaaaaaaaaaaa ", self.tokens[i][1])
             if self.tokens[i][1] == "{" and fanterior[1] == "}":
-                raise RuntimeError('Se esperaba "ID" antes de inicializar un {')
+                raise RuntimeError('Se esperaba un "ID" o un ")" antes de inicializar un {')
 
         self.current_token_index += 1
         if self.tokens[self.current_token_index][0] == "LBRACE":
