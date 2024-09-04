@@ -1,7 +1,11 @@
 import re
 
+
+pila_aux = []
+
 class RobotParser:
     def __init__(self, program):
+        
         self.program = program
         self.tokens = self.tokenize(program)
         self.current_token_index = 0
@@ -21,6 +25,7 @@ class RobotParser:
         self.directions = {"left", "right", "back", "forward"}
         self.orientations = {"north", "south", "east", "west"}
         self.block_balance = 0  # Para rastrear el equilibrio de los bloques
+
 
     def tokenize(self, program):
         token_specification = [
@@ -54,6 +59,8 @@ class RobotParser:
         return tokens
 
     def parse(self):
+        token = self.tokens[self.current_token_index]
+        self.previous_token = token
         try:
             while self.current_token_index < len(self.tokens):
                 print(f"Parseando instrucción en índice {self.current_token_index}: {self.tokens[self.current_token_index]}")
@@ -71,7 +78,6 @@ class RobotParser:
     def parse_instruction(self):
         token = self.tokens[self.current_token_index]
         print(f"Procesando token: {token}")
-    
         if token[0] == "ID" and token[1] == "NEW":
             print("Encontrado NEW")
             self.current_token_index += 1  # Saltar "NEW"
@@ -88,9 +94,12 @@ class RobotParser:
         elif token[0] == "ID":
             self.parse_command()  # Para cualquier comando que no sea estructural
         elif token[0] == "LBRACE":
+            comparar = pila_aux.pop()    
             self.block_balance += 1  # Incrementar el balance de bloques
             self.current_token_index += 1
             print(f"Bloque abierto. Balance actual: {self.block_balance}")
+        
+            
         elif token[0] == "RBRACE":
             self.block_balance -= 1  # Decrementar el balance de bloques
             print(f"Bloque cerrado. Balance actual: {self.block_balance}")
@@ -104,6 +113,8 @@ class RobotParser:
             self.current_token_index += 1  # Saltar el punto y coma
         else:
             raise RuntimeError(f"Instrucción no reconocida: {token}")
+        pila_aux.append(token)
+
 
     def parse_new(self):
         token = self.tokens[self.current_token_index]
@@ -291,19 +302,29 @@ class RobotParser:
         print("Paréntesis balanceado")
 
     def parse_exec(self):
-        print("Procesando EXEC")
+        for i in range (len(self.tokens)):
+            self.tokens[i]
+            fanterior = self.tokens[i-1] 
+            print("aaaaaaaaaaaaaaaaa ", fanterior)
+            print("aaaaaaaaaaaaaaaaa ", self.tokens[i][1])
+            if self.tokens[i][1] == "{" and fanterior[1] == "}":
+                raise RuntimeError('Se esperaba "ID" antes de inicializar un {')
+
         self.current_token_index += 1
         if self.tokens[self.current_token_index][0] == "LBRACE":
             self.block_balance += 1  # Incrementar el balance por el bloque abierto
             self.current_token_index += 1
             exec_body = []
             while self.tokens[self.current_token_index][0] != "RBRACE":
+                pila_aux.append(self.tokens)
+
                 if self.current_token_index >= len(self.tokens):
                     raise RuntimeError('Se esperaba "}" para cerrar el bloque de EXEC')
                 self.parse_instruction()  # Procesar el contenido del bloque EXEC
             self.block_balance -= 1  # Decrementar el balance por el bloque cerrado
             self.current_token_index += 1  # Saltar '}'
             print(f"Bloque EXEC cerrado, balance actual: {self.block_balance}")
+            
         else:
             raise RuntimeError('Se esperaba "{" después de EXEC')
 
