@@ -70,10 +70,10 @@ class RobotParser:
             if self.block_balance != 0:
                 raise RuntimeError("Desequilibrio de bloques: faltan corchetes de cierre")
 
-            print("El programa es correcto.")
+            print("SI, El programa es correcto.")
         except RuntimeError as e:
             print(f"Error encontrado: {e}")
-            print("El programa es incorrecto.")
+            print("NO, El programa es incorrecto.")
 
     def parse_instruction(self):
         token = self.tokens[self.current_token_index]
@@ -299,6 +299,7 @@ class RobotParser:
             if self.current_token_index >= len(self.tokens):
                 raise RuntimeError('Se esperaba ")" para cerrar el paréntesis')
             self.current_token_index += 1
+            Exception("Error en la longitud de los parentesis (fuera de rango falta abrir o cerrar un parentesis)")
         print("Paréntesis balanceado")
 
     def parse_exec(self):
@@ -343,9 +344,40 @@ class RobotParser:
         else:
             raise RuntimeError('Se esperaba "{" después de los parámetros del macro')
 
-# Leer el contenido del archivo
 with open("code-examples.txt", "r") as file:
-    program = file.read()
+    program_Prueba1 = file.read()       # Ejemplo de inicio --> Si pasa
+
+with open("code-examplesPrueba2.txt", "r") as file:
+    program_Prueba2 = file.read()  #Error en la producción de tokens y producción de condicional (2 corchetes pegados sin condición }{ )  linea 2, 30
+
+with open("code-examplesPrueba3.txt", "r") as file:
+    program_Prueba3 = file.read() #Error en la creación de parentesís creación de NEW MACRO linea 11
+
+with open("code-examplesPrueba4.txt", "r") as file:
+    program_Prueba4 = file.read() #Cambio en variables linea 11, 5, 6 y cambio de RoomChips x MyChips linea 24 --> SI PASA
+
+
+
+print("Escoja una opción de pruebas: ")
+print("1. Para comprobación prueba 1 \n")
+print("2. Para comprobación prueba 2 \n")
+print("3. Para comprobación prueba 3: \n")
+print("4. Para comprobación prueba 4: \n")
+valor = int(input("Ingrese la opción a elegir: "))
+
+if valor == 1:
+    program = program_Prueba1
+elif valor == 2:
+    program = program_Prueba2
+elif valor == 3:
+    program = program_Prueba3
+elif valor == 4:
+    program = program_Prueba4  
 
 parser = RobotParser(program)
 parser.parse()
+
+
+
+
+
